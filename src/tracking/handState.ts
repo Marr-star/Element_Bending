@@ -14,11 +14,10 @@ export interface HandFrame {
 }
 
 /**
- * MediaPipe assumes a mirrored (selfie) input when it labels handedness. We feed it the raw,
- * unmirrored webcam frame, so its labels come out swapped. Check with your real left hand:
- * if the "Left" label appears on your right hand, flip this.
+ * Whether to flip MediaPipe's Left/Right labels. Verified with a real left hand on the raw
+ * (unmirrored) webcam feed: MediaPipe's labels are already correct, so no swap is needed.
  */
-export const SWAP_HANDEDNESS = true
+export const SWAP_HANDEDNESS = false
 
 export function readHands(result: GestureRecognizerResult): HandFrame[] {
   return result.landmarks.map((landmarks, i) => {

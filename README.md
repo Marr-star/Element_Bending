@@ -38,5 +38,5 @@ public/
   `core/runtime.ts`; React renders menus and polls `stats` a few times a second.
 - **One coordinate system.** Scene units are CSS pixels, origin at the viewport center, +y up.
   Place anything at a landmark with `stage.toScene(landmark)` — it applies the mirror.
-- **Handedness.** MediaPipe labels assume a mirrored input; we feed it raw frames, so
-  `SWAP_HANDEDNESS` in `tracking/handState.ts` flips them. Verify with your real left hand.
+- **Handedness.** MediaPipe's Left/Right labels are correct on the raw webcam feed (verified
+  with a real left hand), so `SWAP_HANDEDNESS` in `tracking/handState.ts` is `false`.
