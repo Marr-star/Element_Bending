@@ -1,9 +1,12 @@
 import type { GestureRecognizer } from '@mediapipe/tasks-vision'
-import { GestureEngine, type GestureFrame } from '../gestures/gestureEngine'
+import { FireController } from '../elements/fire/controller'
+import type { ElementController } from '../elements/types'
+import { GestureEngine, type GestureEvent, type GestureFrame } from '../gestures/gestureEngine'
 import { downloadRecording, Recorder } from '../gestures/recorder'
 import type { Pose } from '../gestures/rules'
 import { createGestureSettings, type GestureSettings } from '../gestures/settings'
 import { sceneToScreen } from '../render/coords'
+import { ParticleSystem } from '../render/particles'
 import { Stage } from '../render/scene'
 import { SkeletonOverlay } from '../render/skeleton'
 import { HandTracker, readHands, type HandFrame, type Handedness } from '../tracking/handState'
@@ -35,6 +38,7 @@ export interface Runtime {
   settings: GestureSettings
   gestures: GestureEngine
   setSkeletonVisible(visible: boolean): void
+  setBloom(enabled: boolean): void
   /** Starts or stops a debug recording; stopping downloads it as JSON. Returns whether recording. */
   toggleRecording(): boolean
   stop(): void
@@ -81,9 +85,15 @@ export async function startRuntime({ container, video, labels }: RuntimeOptions)
   const stats: Stats = { fps: 0, inferenceMs: 0, hands: 0, delegate, handsGap: null }
   const aspect = () => (video.videoWidth && video.videoHeight ? video.videoWidth / video.videoHeight : 16 / 9)
 
+  const particles = new ParticleSystem(stage.scene)
+  const elements: ElementController[] = [new FireController({ stage, particles })]
+
+  // Events queue up between frames; holds are left out because the frame carries durations.
+  const pendingEvents: GestureEvent[] = []
   const pushedAt: Partial<Record<Handedness, number>> = {}
   gestures.on((event) => {
     if (event.type === 'push') pushedAt[event.hand] = event.time
+    if (event.type !== 'gestureHold') pendingEvents.push(event)
   })
 
   let frame: GestureFrame = { time: 0, hands: {}, twoHands: null }
@@ -91,7 +101,7 @@ export async function startRuntime({ container, video, labels }: RuntimeOptions)
   let frames = 0
   let fpsWindowStart = performance.now()
 
-  const stopLoop = startLoop((_dt, now) => {
+  const stopLoop = startLoop((dt, now) => {
     if (video.currentTime !== lastVideoTime) {
       lastVideoTime = video.currentTime
       const time = now / 1000
@@ -101,9 +111,13 @@ export async function startRuntime({ container, video, labels }: RuntimeOptions)
       stats.handsGap = frame.twoHands && { distance: frame.twoHands.distance, rate: frame.twoHands.rate }
     }
 
+    elements.forEach((element) => element.update(dt, frame, pendingEvents))
+    pendingEvents.length = 0
+    particles.update(dt)
+
     skeleton.update(Object.values(frame.hands).map((hand) => hand.state))
     placeLabels(labels, frame, pushedAt, stage)
-    stage.render()
+    stage.render(dt)
 
     frames++
     if (now - fpsWindowStart >= 500) {
@@ -118,6 +132,7 @@ export async function startRuntime({ container, video, labels }: RuntimeOptions)
     settings,
     gestures,
     setSkeletonVisible: (visible) => skeleton.setVisible(visible),
+    setBloom: (enabled) => (stage.postFx.enabled = enabled),
     toggleRecording() {
       if (!recorder.active) {
         recorder.start(aspect(), performance.now() / 1000)
@@ -130,6 +145,8 @@ export async function startRuntime({ container, video, labels }: RuntimeOptions)
     stop() {
       stopLoop()
       recorder.stop()
+      elements.forEach((element) => element.dispose())
+      particles.dispose()
       skeleton.dispose()
       stage.dispose()
       recognizer.close()

@@ -18,6 +18,7 @@ export default function App() {
   const [status, setStatus] = useState<Status>({ kind: 'idle' })
   const [showSkeleton, setShowSkeleton] = useState(true)
   const [recording, setRecording] = useState(false)
+  const [bloom, setBloom] = useState(true)
 
   // The Start click is the user gesture that camera (and, from Phase 4, audio) require.
   async function start() {
@@ -30,6 +31,7 @@ export default function App() {
         labels: { Left: leftLabelRef.current, Right: rightLabelRef.current },
       })
       runtime.setSkeletonVisible(showSkeleton)
+      runtime.setBloom(bloom)
       runtimeRef.current = runtime
       setStatus({ kind: 'running', runtime })
     } catch (err) {
@@ -58,10 +60,15 @@ export default function App() {
   }, [showSkeleton])
 
   useEffect(() => {
+    runtimeRef.current?.setBloom(bloom)
+  }, [bloom])
+
+  useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.repeat) return
       const key = e.key.toLowerCase()
       if (key === 's') setShowSkeleton((show) => !show)
+      if (key === 'b') setBloom((on) => !on)
       if (key === 'r') toggleRecording()
     }
     window.addEventListener('keydown', onKey)
@@ -89,6 +96,8 @@ export default function App() {
             <ControlPanel
               showSkeleton={showSkeleton}
               onShowSkeletonChange={setShowSkeleton}
+              bloom={bloom}
+              onBloomChange={setBloom}
               recording={recording}
               onToggleRecording={toggleRecording}
               onStop={stop}
