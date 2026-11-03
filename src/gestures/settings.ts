@@ -40,12 +40,21 @@ export interface GestureSettings {
   pushGrowth: number
   pushCooldown: number
 
-  /** Seconds over which the distance between hands is differentiated. */
+  /** Seconds over which `TwoHandState.rate` is measured. */
   handsSpeedWindow: number
-  /** Hand sizes per second the hands must separate (or close) at to fire handsApart (handsTogether). */
-  handsApartSpeed: number
-  handsTogetherSpeed: number
+  /** Seconds within which the hands must separate (or close) by the distances below. */
+  handsWindow: number
+  /** Growth in palm-to-palm distance, in hand sizes, that fires handsApart... */
+  handsApartDistance: number
+  /** ...and the shrink that fires handsTogether. */
+  handsTogetherDistance: number
   handsCooldown: number
+  /**
+   * MediaPipe often sees two hands held close as one. If a hand vanishes while the hands are close
+   * and both reappear within this many seconds, at least `handsApartDistance` farther apart, that
+   * counts as handsApart.
+   */
+  mergeMemory: number
   /** Palm-to-palm distance that counts as hands close together, with hysteresis. */
   closeStart: number
   closeEnd: number
@@ -74,9 +83,11 @@ const DEFAULTS: GestureSettings = {
   pushCooldown: 0.6,
 
   handsSpeedWindow: 0.2,
-  handsApartSpeed: 8,
-  handsTogetherSpeed: 8,
+  handsWindow: 0.5,
+  handsApartDistance: 2,
+  handsTogetherDistance: 2,
   handsCooldown: 0.6,
+  mergeMemory: 2,
   closeStart: 2,
   closeEnd: 2.6,
 }

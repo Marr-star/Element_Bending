@@ -69,6 +69,8 @@ export class GestureEngine {
   private distances: { time: number; distance: number }[] = []
   private close = false
   private lastTwoHandEvent = -Infinity
+  /** Last two-hand reading before one hand vanished while the hands were close (merged). */
+  private merged: { time: number; distance: number } | null = null
 
   constructor(settings: GestureSettings) {
     this.settings = settings
@@ -157,11 +159,30 @@ export class GestureEngine {
     return frame
   }
 
+  /**
+   * Two things make MediaPipe lose a hand during these moves: motion blur (a frame or two, covered
+   * because a briefly lost hand keeps its last position), and hands close together, which it often
+   * sees as one hand. For the second, a hand that vanishes while the hands are close is remembered
+   * as "merged", and both hands reappearing far apart counts as handsApart.
+   */
   private updateTwoHands(frame: GestureFrame, time: number, events: GestureEvent[]): TwoHandState | null {
     const s = this.settings
     const left = frame.hands.Left
     const right = frame.hands.Right
-    if (!left?.visible || !right?.visible) {
+    const cooledDown = time - this.lastTwoHandEvent > s.handsCooldown
+    if (!left || !right) {
+      const last = this.distances.at(-1)
+      if (last && this.close) {
+        // Hands met and one vanished: count the approach so far as handsTogether if it was fast.
+        const farthest = this.distances
+          .filter((d) => d.time >= last.time - s.handsWindow)
+          .reduce((a, b) => (b.distance > a.distance ? b : a))
+        if (cooledDown && farthest.distance - last.distance >= s.handsTogetherDistance / 2) {
+          events.push({ type: 'handsTogether', time, speed: (farthest.distance - last.distance) / Math.max(last.time - farthest.time, 1e-3) })
+          this.lastTwoHandEvent = time
+        }
+        this.merged = last
+      }
       this.distances = []
       this.close = false
       return null
@@ -169,19 +190,33 @@ export class GestureEngine {
 
     const averageSize = (left.state.size + right.state.size) / 2
     const distance = dist2(left.state.palm, right.state.palm) / averageSize
-    this.distances.push({ time, distance })
-    while (this.distances[0].time < time - s.handsSpeedWindow) this.distances.shift()
 
-    const oldest = this.distances[0]
-    const rate = time > oldest.time ? (distance - oldest.distance) / (time - oldest.time) : 0
+    const merged = this.merged
+    this.merged = null
+    if (merged && cooledDown && time - merged.time <= s.mergeMemory && distance - merged.distance >= s.handsApartDistance) {
+      events.push({ type: 'handsApart', time, speed: (distance - merged.distance) / (time - merged.time) })
+      this.lastTwoHandEvent = time
+    }
+
+    this.distances.push({ time, distance })
+    const window = Math.max(s.handsWindow, s.handsSpeedWindow)
+    while (this.distances[0].time < time - window) this.distances.shift()
+
+    const recent = this.distances.find((d) => d.time >= time - s.handsSpeedWindow)!
+    const rate = time > recent.time ? (distance - recent.distance) / (time - recent.time) : 0
     this.close = this.close ? distance < s.closeEnd : distance < s.closeStart
 
     if (time - this.lastTwoHandEvent > s.handsCooldown) {
-      if (rate > s.handsApartSpeed) {
-        events.push({ type: 'handsApart', time, speed: rate })
+      const inWindow = this.distances.filter((d) => d.time >= time - s.handsWindow)
+      const nearest = inWindow.reduce((a, b) => (b.distance < a.distance ? b : a))
+      const farthest = inWindow.reduce((a, b) => (b.distance > a.distance ? b : a))
+      const speed = (from: { time: number; distance: number }) => Math.abs(distance - from.distance) / Math.max(time - from.time, 1e-3)
+
+      if (distance - nearest.distance >= s.handsApartDistance) {
+        events.push({ type: 'handsApart', time, speed: speed(nearest) })
         this.lastTwoHandEvent = time
-      } else if (rate < -s.handsTogetherSpeed) {
-        events.push({ type: 'handsTogether', time, speed: -rate })
+      } else if (farthest.distance - distance >= s.handsTogetherDistance) {
+        events.push({ type: 'handsTogether', time, speed: speed(farthest) })
         this.lastTwoHandEvent = time
       }
     }

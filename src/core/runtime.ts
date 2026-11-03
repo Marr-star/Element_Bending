@@ -7,6 +7,7 @@ import { sceneToScreen } from '../render/coords'
 import { Stage } from '../render/scene'
 import { SkeletonOverlay } from '../render/skeleton'
 import { HandTracker, readHands, type HandFrame, type Handedness } from '../tracking/handState'
+import type { Vec2 } from '../tracking/vec'
 import { startCamera, stopCamera } from './camera'
 import { startLoop } from './loop'
 import { createRecognizer, type Delegate } from './recognizer'
@@ -17,6 +18,8 @@ export interface Stats {
   inferenceMs: number
   hands: number
   delegate: Delegate | null
+  /** Palm-to-palm distance in hand sizes and its change per second, while both hands are tracked. */
+  handsGap: { distance: number; rate: number } | null
 }
 
 export interface RuntimeOptions {
@@ -47,6 +50,13 @@ const POSE_NAMES: Record<Pose, string> = {
 }
 /** How long a push stays visible on the hand's label, in seconds. */
 const PUSH_FLASH = 0.5
+/** Counter-clockwise from "right", in 45° steps (tracking space is mirrored like the view, +y up). */
+const ARROWS = ['→', '↗', '↑', '↖', '←', '↙', '↓', '↘']
+
+function arrow(direction: Vec2): string {
+  const step = Math.round(Math.atan2(direction.y, direction.x) / (Math.PI / 4))
+  return ARROWS[(step + 8) % 8]
+}
 
 /**
  * Wires camera -> recognizer -> tracker -> gesture engine -> scene into one loop. All per-frame
@@ -68,7 +78,7 @@ export async function startRuntime({ container, video, labels }: RuntimeOptions)
   const tracker = new HandTracker(settings.smoothing)
   const gestures = new GestureEngine(settings)
   const recorder = new Recorder()
-  const stats: Stats = { fps: 0, inferenceMs: 0, hands: 0, delegate }
+  const stats: Stats = { fps: 0, inferenceMs: 0, hands: 0, delegate, handsGap: null }
   const aspect = () => (video.videoWidth && video.videoHeight ? video.videoWidth / video.videoHeight : 16 / 9)
 
   const pushedAt: Partial<Record<Handedness, number>> = {}
@@ -88,6 +98,7 @@ export async function startRuntime({ container, video, labels }: RuntimeOptions)
       const raw = recognize(recognizer, video, stats)
       if (recorder.active) recorder.add(time, raw)
       frame = gestures.update(tracker.update(raw, time, aspect()), time)
+      stats.handsGap = frame.twoHands && { distance: frame.twoHands.distance, rate: frame.twoHands.rate }
     }
 
     skeleton.update(Object.values(frame.hands).map((hand) => hand.state))
@@ -154,16 +165,17 @@ function placeLabels(
       label.style.display = 'none'
       continue
     }
-    const { state, pose, rotation } = tracked
+    const { state, pose, rotation, pointing } = tracked
     const wrist = sceneToScreen(stage.toScene(state.landmarks[0]), stage.viewport)
     label.style.display = 'block'
     label.style.transform = `translate(${wrist.x}px, ${wrist.y + 16}px) translateX(-50%)`
     label.dataset.hand = hand
 
     const [main, raw] = label.children as HTMLCollectionOf<HTMLElement>
+    const aim = pointing ? ` ${arrow(pointing)}` : ''
     const spin = rotation > 0 ? ' ⟲' : rotation < 0 ? ' ⟳' : ''
     const pushed = frame.time - (pushedAt[hand] ?? -Infinity) < PUSH_FLASH ? ' · PUSH' : ''
-    main.textContent = `${hand} · ${POSE_NAMES[pose]}${spin}${pushed}`
+    main.textContent = `${hand} · ${POSE_NAMES[pose]}${aim}${spin}${pushed}`
     raw.textContent = `MediaPipe: ${state.label.replace(/_/g, ' ')} ${Math.round(state.labelScore * 100)}%`
   }
 }
