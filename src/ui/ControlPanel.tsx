@@ -1,24 +1,27 @@
 interface ControlPanelProps {
   showSkeleton: boolean
   onShowSkeletonChange(show: boolean): void
+  bloom: boolean
+  onBloomChange(on: boolean): void
   recording: boolean
   onToggleRecording(): void
   onStop(): void
 }
 
 /** Settings panel. Phase 6 adds quality, volume and sensitivity sliders. */
-export function ControlPanel({ showSkeleton, onShowSkeletonChange, recording, onToggleRecording, onStop }: ControlPanelProps) {
+export function ControlPanel({
+  showSkeleton,
+  onShowSkeletonChange,
+  bloom,
+  onBloomChange,
+  recording,
+  onToggleRecording,
+  onStop,
+}: ControlPanelProps) {
   return (
     <div className="flex items-center gap-3 rounded-lg bg-black/60 px-3 py-2 text-sm backdrop-blur">
-      <label className="flex cursor-pointer items-center gap-2 select-none">
-        <input
-          type="checkbox"
-          className="accent-orange-400"
-          checked={showSkeleton}
-          onChange={(e) => onShowSkeletonChange(e.target.checked)}
-        />
-        Skeleton <kbd className="rounded bg-white/10 px-1 text-xs">S</kbd>
-      </label>
+      <Toggle label="Skeleton" hotkey="S" checked={showSkeleton} onChange={onShowSkeletonChange} />
+      <Toggle label="Glow" hotkey="B" checked={bloom} onChange={onBloomChange} />
       <button
         type="button"
         onClick={onToggleRecording}
@@ -32,5 +35,14 @@ export function ControlPanel({ showSkeleton, onShowSkeletonChange, recording, on
         Stop
       </button>
     </div>
+  )
+}
+
+function Toggle({ label, hotkey, checked, onChange }: { label: string; hotkey: string; checked: boolean; onChange(checked: boolean): void }) {
+  return (
+    <label className="flex cursor-pointer items-center gap-2 select-none">
+      <input type="checkbox" className="accent-orange-400" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+      {label} <kbd className="rounded bg-white/10 px-1 text-xs">{hotkey}</kbd>
+    </label>
   )
 }

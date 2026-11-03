@@ -47,7 +47,21 @@ MediaPipe labels count only above 60% confidence. `Thumb_Up`, `Thumb_Down` and `
 ignored: in testing, pointing down was read as Thumb_Up and ILoveYou was not recognized at all.
 A pose must hold for 4 frames to start or end. All thresholds live in `gestures/settings.ts`.
 
-**Keys:** `S` toggles the skeleton, `R` starts/stops a landmark recording. Stopping downloads a
+## Fire
+
+| Do this | Effect |
+|---|---|
+| Make a fist | A fireball charges up and follows your hand |
+| Open your hand while moving it | Throws the fireball; it explodes at the screen edge or after 1.5 s |
+| Open your hand while holding still | Releases it; it drifts up and fades |
+| Push toward the camera | Launches it at you: it swells and bursts with a flash and screen shake |
+| Two fists together | The balls merge into one that grows (up to 2.5×) while you hold |
+
+Effects share one GPU particle system (5,000 particles in a ring buffer, motion computed in the
+shader) and an UnrealBloomPass glow. The webcam is dimmed below the bloom threshold so only
+effects glow.
+
+**Keys:** `S` toggles the skeleton, `B` toggles glow (bloom), `R` starts/stops a landmark recording. Stopping downloads a
 JSON file; put it in `src/gestures/fixtures/` and replay it in a test with `replay()` from
 `gestures/recorder.ts` to tune thresholds without the camera.
 
