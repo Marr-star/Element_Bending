@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { CameraError } from '../core/camera'
 import { startRuntime, type Runtime } from '../core/runtime'
 import { ControlPanel } from './ControlPanel'
+import { EventLog } from './EventLog'
 import { GestureBadge } from './GestureBadge'
 import { Stats } from './Stats'
 
@@ -10,12 +11,13 @@ type Status = { kind: 'idle' } | { kind: 'starting' } | { kind: 'running'; runti
 export default function App() {
   const containerRef = useRef<HTMLDivElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
-  const firstLabelRef = useRef<HTMLDivElement>(null)
-  const secondLabelRef = useRef<HTMLDivElement>(null)
+  const leftLabelRef = useRef<HTMLDivElement>(null)
+  const rightLabelRef = useRef<HTMLDivElement>(null)
   const runtimeRef = useRef<Runtime | null>(null)
 
   const [status, setStatus] = useState<Status>({ kind: 'idle' })
   const [showSkeleton, setShowSkeleton] = useState(true)
+  const [recording, setRecording] = useState(false)
 
   // The Start click is the user gesture that camera (and, from Phase 4, audio) require.
   async function start() {
@@ -25,7 +27,7 @@ export default function App() {
       const runtime = await startRuntime({
         container: containerRef.current,
         video: videoRef.current,
-        labels: [firstLabelRef.current, secondLabelRef.current],
+        labels: { Left: leftLabelRef.current, Right: rightLabelRef.current },
       })
       runtime.setSkeletonVisible(showSkeleton)
       runtimeRef.current = runtime
@@ -43,7 +45,12 @@ export default function App() {
   function stop() {
     runtimeRef.current?.stop()
     runtimeRef.current = null
+    setRecording(false)
     setStatus({ kind: 'idle' })
+  }
+
+  function toggleRecording() {
+    if (runtimeRef.current) setRecording(runtimeRef.current.toggleRecording())
   }
 
   useEffect(() => {
@@ -52,7 +59,10 @@ export default function App() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key.toLowerCase() === 's' && !e.repeat) setShowSkeleton((show) => !show)
+      if (e.repeat) return
+      const key = e.key.toLowerCase()
+      if (key === 's') setShowSkeleton((show) => !show)
+      if (key === 'r') toggleRecording()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -64,16 +74,25 @@ export default function App() {
     <main className="relative h-full w-full">
       <video ref={videoRef} className="hidden" playsInline muted />
       <div ref={containerRef} className="absolute inset-0" />
-      <GestureBadge ref={firstLabelRef} />
-      <GestureBadge ref={secondLabelRef} />
+      <GestureBadge ref={leftLabelRef} />
+      <GestureBadge ref={rightLabelRef} />
 
       {status.kind === 'running' ? (
         <>
           <div className="absolute top-4 left-4">
             <Stats stats={status.runtime.stats} />
           </div>
+          <div className="absolute bottom-4 left-4">
+            <EventLog gestures={status.runtime.gestures} />
+          </div>
           <div className="absolute top-4 right-4">
-            <ControlPanel showSkeleton={showSkeleton} onShowSkeletonChange={setShowSkeleton} onStop={stop} />
+            <ControlPanel
+              showSkeleton={showSkeleton}
+              onShowSkeletonChange={setShowSkeleton}
+              recording={recording}
+              onToggleRecording={toggleRecording}
+              onStop={stop}
+            />
           </div>
         </>
       ) : (

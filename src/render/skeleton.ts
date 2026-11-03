@@ -1,7 +1,14 @@
 import { GestureRecognizer } from '@mediapipe/tasks-vision'
 import * as THREE from 'three'
-import type { HandFrame, Handedness } from '../tracking/handState'
+import type { Handedness } from '../tracking/handState'
+import type { Vec3 } from '../tracking/vec'
 import type { Stage } from './scene'
+
+/** Anything with landmarks in MediaPipe 0..1 coordinates: raw HandFrames or smoothed HandStates. */
+interface SkeletonHand {
+  landmarks: Vec3[]
+  handedness: Handedness
+}
 
 const BONES = GestureRecognizer.HAND_CONNECTIONS
 const POINTS_PER_HAND = 21
@@ -39,7 +46,7 @@ class HandSkeleton {
     this.group.add(this.bones, this.points)
   }
 
-  update(hand: HandFrame, stage: Stage): void {
+  update(hand: SkeletonHand, stage: Stage): void {
     const color = HAND_COLORS[hand.handedness]
     this.points.material.color.set(color)
     this.bones.material.color.set(color)
@@ -82,7 +89,7 @@ export class SkeletonOverlay {
     this.visible = visible
   }
 
-  update(hands: HandFrame[]): void {
+  update(hands: SkeletonHand[]): void {
     this.hands.forEach((skeleton, i) => {
       const hand = hands[i]
       skeleton.group.visible = this.visible && hand !== undefined
