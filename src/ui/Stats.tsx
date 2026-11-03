@@ -20,6 +20,12 @@ export function Stats({ stats }: { stats: LiveStats }) {
       <div>Inference {snapshot.inferenceMs.toFixed(1)} ms</div>
       <div>Hands {snapshot.hands}</div>
       <div>
+        Gap{' '}
+        {snapshot.handsGap
+          ? `${snapshot.handsGap.distance.toFixed(1)} (${snapshot.handsGap.rate >= 0 ? '+' : ''}${snapshot.handsGap.rate.toFixed(1)}/s)`
+          : '—'}
+      </div>
+      <div>
         Delegate{' '}
         <span className={snapshot.delegate === 'CPU' ? 'text-amber-400' : 'text-emerald-400'}>{snapshot.delegate}</span>
       </div>

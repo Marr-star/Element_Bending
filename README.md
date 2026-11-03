@@ -36,12 +36,12 @@ public/
 | Gesture | How it is detected |
 |---|---|
 | Fist, open palm | Landmark rule (all fingers curled / straight), else MediaPipe's label |
-| Pointing (any direction) | Index straight, other fingers curled; else MediaPipe `Pointing_Up` |
+| Pointing (any direction) | Index straight, other fingers curled; else MediaPipe `Pointing_Up`. The label shows the direction |
 | Two fingers | Index and middle straight, ring and pinky curled; else MediaPipe `Victory` |
 | Pinch | Thumb tip to index tip under 0.25 hand sizes (ends above 0.35) |
 | Rotate | Roll changes more than 60° within 0.5 s (ends below 30°) |
 | Push | Apparent hand size grows more than 25% within 0.3 s |
-| Hands apart / together | Palm distance changes faster than 8 hand sizes per second |
+| Hands apart / together | Palm distance grows (shrinks) by 2 hand sizes within 0.5 s; a hand lost for a few frames keeps its last position. Hands held close often merge into one detection; reappearing apart within 2 s still counts as apart. The stats panel shows the live gap |
 
 MediaPipe labels count only above 60% confidence. `Thumb_Up`, `Thumb_Down` and `ILoveYou` are
 ignored: in testing, pointing down was read as Thumb_Up and ILoveYou was not recognized at all.
