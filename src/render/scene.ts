@@ -5,7 +5,7 @@ import { PostFx } from './postfx'
 /** Extra video beyond each viewport edge so screen shake never reveals the background. */
 const SHAKE_MARGIN = 24
 /** Webcam brightness, kept under the bloom threshold so only effects glow. */
-const VIDEO_BRIGHTNESS = 0.85
+export const VIDEO_BRIGHTNESS = 0.85
 
 /**
  * The one Three.js scene: the webcam is a full-screen VideoTexture plane at the back, and
@@ -18,10 +18,11 @@ export class Stage {
   readonly viewport: Size = { width: 1, height: 1 }
   readonly plane: Size = { width: 1, height: 1 }
   readonly postFx: PostFx
+  /** The mirrored webcam, for effects that bend the real image (water, shockwaves). */
+  readonly videoTexture: THREE.VideoTexture
 
   private readonly container: HTMLElement
   private readonly video: HTMLVideoElement
-  private readonly videoTexture: THREE.VideoTexture
   private readonly videoMesh: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>
   private readonly flashMesh: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>
   private readonly onResize = () => this.resize()

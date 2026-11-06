@@ -47,7 +47,12 @@ MediaPipe labels count only above 60% confidence. `Thumb_Up`, `Thumb_Down` and `
 ignored: in testing, pointing down was read as Thumb_Up and ILoveYou was not recognized at all.
 A pose must hold for 4 frames to start or end. All thresholds live in `gestures/settings.ts`.
 
-## Fire
+## Elements
+
+Pick an element with the buttons at the bottom of the screen or keys `1`–`4`; only the active
+element responds to your hands, and switching clears the previous one's effects.
+
+### 1 · Fire
 
 | Do this | Effect |
 |---|---|
@@ -56,6 +61,28 @@ A pose must hold for 4 frames to start or end. All thresholds live in `gestures/
 | Open your hand while holding still | Releases it; it drifts up and fades |
 | Push toward the camera | Launches it at you: it swells and bursts with a flash and screen shake |
 | Two fists together | The balls merge into one that grows (up to 2.5×) while you hold |
+
+### 2 · Water
+
+Being redesigned. Choosing water currently does nothing.
+
+### 3 · Lightning
+
+| Do this | Effect |
+|---|---|
+| Point (any direction) | A bolt leaps from your index fingertip along the finger, re-jagging every 50–80 ms |
+| Two fingers | The bolt splits into 2–4 forks, some forking again |
+| Pinch and hold | An energy sphere grows between thumb and index finger, with arcs crawling over it |
+| Release the pinch | It discharges: arcs burst outward with a flash, a shake and thunder (bigger after a longer charge) |
+
+### 4 · Air
+
+| Do this | Effect |
+|---|---|
+| Open hand | A stream of air streaks leaves the palm the way the hand moves |
+| Twist your wrist | A vortex: air spirals into the palm, spinning the way you turn |
+| Bring both hands close | Air is drawn in and packed into a glowing ball between them |
+| Snap them apart | A shockwave ring that warps the room as it expands (stronger after compressing) |
 
 Effects share one GPU particle system (5,000 particles in a ring buffer, motion computed in the
 shader) and an UnrealBloomPass glow. The webcam is dimmed below the bloom threshold so only
@@ -83,11 +110,13 @@ anything missing stays synthesized.
 | File name | Used for |
 |---|---|
 | `fire-hold` | The sound while holding a fireball (without it, a synthesized wood-fire crackle plays) |
-| `fire-ignite`, `fire-whoosh`, `fire-explosion` | The one-shots |
+| `fire-ignite`, `fire-whoosh`, `fire-explosion` | Fire's one-shots |
+| `lightning-buzz`, `lightning-zap`, `lightning-strike` | The live bolt's buzz, a bolt leaping out, the discharge's thunder |
+| `air-wind`, `air-shockwave` | Wind that swells with airflow and vortices, the shockwave's thump |
 
 Check the licence of anything you add. CC0 or similar avoids attribution requirements.
 
-**Keys:** `S` toggles the skeleton, `B` toggles glow (bloom), `M` toggles sound, `R` starts/stops a landmark recording. Stopping downloads a
+**Keys:** `1`–`4` pick fire, water, lightning or air, `S` toggles the skeleton, `B` toggles glow (bloom), `M` toggles sound, `R` starts/stops a landmark recording. Stopping downloads a
 JSON file; put it in `src/gestures/fixtures/` and replay it in a test with `replay()` from
 `gestures/recorder.ts` to tune thresholds without the camera.
 

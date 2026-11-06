@@ -1,6 +1,9 @@
 import type { GestureRecognizer } from '@mediapipe/tasks-vision'
 import type { AudioEngine } from '../audio/audioEngine'
+import type { ElementName } from '../audio/audioEngine'
+import { AirController } from '../elements/air/controller'
 import { FireController } from '../elements/fire/controller'
+import { LightningController } from '../elements/lightning/controller'
 import type { ElementController } from '../elements/types'
 import { GestureEngine, type GestureEvent, type GestureFrame } from '../gestures/gestureEngine'
 import { downloadRecording, Recorder } from '../gestures/recorder'
@@ -42,6 +45,8 @@ export interface Runtime {
   gestures: GestureEngine
   setSkeletonVisible(visible: boolean): void
   setBloom(enabled: boolean): void
+  /** Switches which element your hands control; the previous one's effects are cleared. */
+  setElement(element: ElementName): void
   /** Volume, per-element volume and mute; null without Web Audio. */
   audio: AudioEngine | null
   /** Starts or stops a debug recording; stopping downloads it as JSON. Returns whether recording. */
@@ -92,7 +97,14 @@ export async function startRuntime({ container, video, labels, audio }: RuntimeO
   const aspect = () => (video.videoWidth && video.videoHeight ? video.videoWidth / video.videoHeight : 16 / 9)
 
   const particles = new ParticleSystem(stage.scene)
-  const elements: ElementController[] = [new FireController({ stage, particles, audio })]
+  const context = { stage, particles, audio }
+  // Water is being redesigned; until it is back, choosing it shows nothing.
+  const elements: Partial<Record<ElementName, ElementController>> = {
+    fire: new FireController(context),
+    lightning: new LightningController(context),
+    air: new AirController(context),
+  }
+  let active: ElementName = 'fire'
 
   // Events queue up between frames; holds are left out because the frame carries durations.
   const pendingEvents: GestureEvent[] = []
@@ -117,7 +129,7 @@ export async function startRuntime({ container, video, labels, audio }: RuntimeO
       stats.handsGap = frame.twoHands && { distance: frame.twoHands.distance, rate: frame.twoHands.rate }
     }
 
-    elements.forEach((element) => element.update(dt, frame, pendingEvents))
+    elements[active]?.update(dt, frame, pendingEvents)
     pendingEvents.length = 0
     particles.update(dt)
 
@@ -139,6 +151,11 @@ export async function startRuntime({ container, video, labels, audio }: RuntimeO
     gestures,
     setSkeletonVisible: (visible) => skeleton.setVisible(visible),
     setBloom: (enabled) => (stage.postFx.enabled = enabled),
+    setElement(element) {
+      if (element === active) return
+      elements[active]?.reset()
+      active = element
+    },
     audio,
     toggleRecording() {
       if (!recorder.active) {
@@ -152,7 +169,7 @@ export async function startRuntime({ container, video, labels, audio }: RuntimeO
     stop() {
       stopLoop()
       recorder.stop()
-      elements.forEach((element) => element.dispose())
+      Object.values(elements).forEach((element) => element?.dispose())
       audio?.close()
       particles.dispose()
       skeleton.dispose()

@@ -20,6 +20,8 @@ export interface EffectContext {
  */
 export interface ElementController {
   update(dt: number, frame: GestureFrame, events: readonly GestureEvent[]): void
+  /** Clears everything on screen and silences it; called when switching to another element. */
+  reset(): void
   dispose(): void
 }
 
@@ -30,6 +32,16 @@ export function palmInScene(stage: Stage, hand: HandState): Vec2 {
   const x = PALM.reduce((sum, i) => sum + hand.landmarks[i].x, 0) / PALM.length
   const y = PALM.reduce((sum, i) => sum + hand.landmarks[i].y, 0) / PALM.length
   return stage.toScene({ x, y })
+}
+
+/** One landmark (e.g. 8 = index fingertip) in scene pixels. */
+export function landmarkInScene(stage: Stage, hand: HandState, index: number): Vec2 {
+  return stage.toScene(hand.landmarks[index])
+}
+
+/** Stereo position for a scene point: -1 at the left edge of the view, +1 at the right. */
+export function panInScene(stage: Stage, point: Vec2): number {
+  return Math.min(1, Math.max(-1, point.x / (stage.viewport.width / 2)))
 }
 
 /** Palm velocity in scene pixels per second (tracking space is in video heights, mirrored, +y up). */

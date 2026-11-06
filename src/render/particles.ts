@@ -21,6 +21,11 @@ export interface ParticleSpec {
   sizeEnd?: number
   color: RGB
   colorEnd?: RGB
+  /**
+   * Circle around (x, y) instead of flying straight: `spin` in radians per second (sign sets the
+   * direction) and `inward` in pixels per second toward the centre, for spirals and vortices.
+   */
+  orbit?: { x: number; y: number; spin: number; inward?: number }
 }
 
 const ATTRIBUTES = {
@@ -31,6 +36,7 @@ const ATTRIBUTES = {
   aSize: 2,
   aColorA: 3,
   aColorB: 3,
+  aOrbit: 4,
 } as const
 type AttributeName = keyof typeof ATTRIBUTES
 
@@ -98,6 +104,8 @@ export class ParticleSystem {
     const end = p.colorEnd ?? p.color
     a.aColorA.setXYZ(i, p.color[0], p.color[1], p.color[2])
     a.aColorB.setXYZ(i, end[0], end[1], end[2])
+    const orbit = p.orbit
+    a.aOrbit.setXYZW(i, orbit?.x ?? 0, orbit?.y ?? 0, orbit ? orbit.spin || 1e-4 : 0, orbit?.inward ?? 0)
   }
 
   /** Advances the clock by `dt` seconds and uploads this frame's new particles. Call once per frame before rendering. */

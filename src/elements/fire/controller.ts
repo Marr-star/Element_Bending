@@ -74,6 +74,10 @@ export class FireController implements ElementController {
     for (const ball of [...this.balls]) this.step(ball, dt, frame)
   }
 
+  reset(): void {
+    this.dispose()
+  }
+
   dispose(): void {
     this.balls.forEach((ball) => {
       ball.core.dispose()
