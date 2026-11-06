@@ -224,3 +224,161 @@ export function explosion(sampleRate: number, rng: Rng = Math.random): Float32Ar
   for (let i = 0; i < fade; i++) out[n - 1 - i] *= i / fade
   return normalize(out, 0.95)
 }
+
+/** Fades the last `seconds` of a one-shot to silence. */
+function fadeTail(out: Float32Array, sampleRate: number, seconds = 0.05): void {
+  const fade = Math.round(sampleRate * seconds)
+  for (let i = 0; i < fade; i++) out[out.length - 1 - i] *= i / fade
+}
+
+/** A sine "blip" whose pitch rises as it decays: the sound of one bubble or droplet. */
+function addBlip(out: Float32Array, start: number, sampleRate: number, frequency: number, decay: number, amplitude: number): void {
+  const length = Math.ceil(decay * sampleRate * 6)
+  let phase = 0
+  for (let j = 0; j < length; j++) {
+    const t = j / sampleRate
+    phase += (TAU * frequency * (1 + 0.6 * (t / (decay * 6)))) / sampleRate
+    const attack = Math.min(j / (sampleRate * 0.0015), 1)
+    out[(start + j) % out.length] += Math.sin(phase) * amplitude * attack * Math.exp(-t / decay)
+  }
+}
+
+/**
+ * Electric buzz, seamlessly loopable: mains-like hum harmonics (whole cycles per loop) through a
+ * band-pass, flickering in level, with sharp little crackles of discharge.
+ */
+export function electricBuzz(sampleRate: number, seconds = 2, rng: Rng = Math.random): Float32Array<ArrayBuffer> {
+  const n = Math.round(sampleRate * seconds)
+  const out = new Float32Array(n)
+  const flicker = loopedFlicker(n, [11, 23, 37, 53], rng)
+  const filter = new StateVariableFilter(sampleRate, 1.2)
+  // Run the filter over two loops and keep the second, so it starts already settled.
+  for (let pass = 0; pass < 2; pass++) {
+    for (let i = 0; i < n; i++) {
+      const t = i / n
+      const saw = ((t * seconds * 100) % 1) * 2 - 1
+      const saw2 = ((t * seconds * 150) % 1) * 2 - 1
+      filter.process(saw * 0.6 + saw2 * 0.4, 1600)
+      if (pass === 1) out[i] = filter.band * (0.35 + 0.65 * flicker(i))
+    }
+  }
+  for (let k = 0, count = Math.round(seconds * 30); k < count; k++) {
+    addSnap(out, Math.floor(rng() * n), sampleRate, { frequency: 3000 + rng() * 5000, q: 2, decay: 0.0006 + rng() * 0.0015, amplitude: 0.6 + rng() }, rng)
+  }
+  return normalize(out, 0.8)
+}
+
+/** Zap: the crack of a bolt leaping out, a bright chirp falling in pitch over a buzzy burst. */
+export function zap(sampleRate: number, rng: Rng = Math.random): Float32Array<ArrayBuffer> {
+  const n = Math.round(sampleRate * 0.35)
+  const out = new Float32Array(n)
+  const filter = new StateVariableFilter(sampleRate, 3)
+  for (let i = 0; i < n; i++) {
+    const t = i / sampleRate
+    filter.process(rng() * 2 - 1, sweep(7000, 1200, t / 0.2))
+    const saw = ((t * 120) % 1) * 2 - 1
+    out[i] = (filter.band * 1.4 + saw * 0.25) * Math.min(t / 0.002, 1) * Math.exp(-t / 0.07)
+  }
+  fadeTail(out, sampleRate)
+  return normalize(out, 0.85)
+}
+
+/** Thunder: a splitting crack, then a long rumble that rolls in irregular waves. */
+export function thunder(sampleRate: number, rng: Rng = Math.random): Float32Array<ArrayBuffer> {
+  const n = Math.round(sampleRate * 2.8)
+  const out = new Float32Array(n)
+  const crack = new StateVariableFilter(sampleRate, 0.9)
+  const rumble = onePole(140, sampleRate)
+  const roll = onePole(3, sampleRate)
+  let low = 0
+  let rolling = 0
+  for (let i = 0; i < n; i++) {
+    const t = i / sampleRate
+    const white = rng() * 2 - 1
+    crack.process(white, sweep(5000, 900, t / 0.15))
+    low += rumble * (white - low)
+    rolling += roll * ((rng() < 0.5 ? 0 : 1) - rolling)
+    const crackEnvelope = Math.min(t / 0.003, 1) * Math.exp(-t / 0.05)
+    const rumbleEnvelope = Math.min(t / 0.12, 1) * Math.exp(-t / 0.9) * (0.4 + 1.2 * rolling)
+    out[i] = crack.band * crackEnvelope * 1.5 + low * rumbleEnvelope * 5
+  }
+  fadeTail(out, sampleRate, 0.2)
+  return normalize(out, 0.95)
+}
+
+/** Wind, seamlessly loopable: breathy band-passed noise rising and falling in gusts. */
+export function wind(sampleRate: number, seconds = 4, rng: Rng = Math.random): Float32Array<ArrayBuffer> {
+  const n = Math.round(sampleRate * seconds)
+  const gusts = loopedFlicker(n, [1, 2, 3, 5], rng)
+  const filter = new StateVariableFilter(sampleRate, 1.4)
+  const out = loopedBed(n, Math.round(sampleRate * 0.1), (i) => {
+    const g = gusts(i % n)
+    filter.process(rng() * 2 - 1, 380 + 900 * g)
+    return filter.band * (0.25 + 0.75 * g)
+  })
+  return normalize(out, 0.8)
+}
+
+/** A soft, low thump: pressure released, as air bursts outward. */
+export function thump(sampleRate: number, rng: Rng = Math.random): Float32Array<ArrayBuffer> {
+  const n = Math.round(sampleRate * 0.9)
+  const out = new Float32Array(n)
+  const filter = new StateVariableFilter(sampleRate, 0.8)
+  let phase = 0
+  for (let i = 0; i < n; i++) {
+    const t = i / sampleRate
+    phase += (TAU * sweep(75, 38, t / 0.4)) / sampleRate
+    filter.process(rng() * 2 - 1, sweep(1800, 300, t / 0.5))
+    const attack = Math.min(t / 0.006, 1)
+    out[i] = (Math.sin(phase) * Math.exp(-t / 0.2) + filter.low * 0.8 * Math.exp(-t / 0.25)) * attack
+  }
+  fadeTail(out, sampleRate)
+  return normalize(out, 0.9)
+}
+
+/** Bubbling water, seamlessly loopable: many small bubbles over a quiet watery bed. */
+export function bubbles(sampleRate: number, seconds = 3, rng: Rng = Math.random): Float32Array<ArrayBuffer> {
+  const n = Math.round(sampleRate * seconds)
+  const filter = new StateVariableFilter(sampleRate, 0.7)
+  const out = loopedBed(n, Math.round(sampleRate * 0.05), () => {
+    filter.process(rng() * 2 - 1, 700)
+    return filter.band * 0.04
+  })
+  for (let k = 0, count = Math.round(seconds * 26); k < count; k++) {
+    addBlip(out, Math.floor(rng() * n), sampleRate, 350 * Math.pow(4, rng()), 0.008 + rng() * 0.02, 0.15 + 0.85 * heavyTail(rng, 2))
+  }
+  return normalize(out, 0.8)
+}
+
+/** Flowing water, seamlessly loopable: a rushing, gurgling stream. */
+export function stream(sampleRate: number, seconds = 4, rng: Rng = Math.random): Float32Array<ArrayBuffer> {
+  const n = Math.round(sampleRate * seconds)
+  const ripple = loopedFlicker(n, [17, 29, 43, 61], rng)
+  const filter = new StateVariableFilter(sampleRate, 1)
+  const out = loopedBed(n, Math.round(sampleRate * 0.08), (i) => {
+    filter.process(rng() * 2 - 1, 1400 + 1400 * ripple(i % n))
+    return filter.band * (0.4 + 0.6 * ripple(i % n))
+  })
+  for (let k = 0, count = Math.round(seconds * 40); k < count; k++) {
+    addBlip(out, Math.floor(rng() * n), sampleRate, 600 * Math.pow(3, rng()), 0.005 + rng() * 0.01, 0.1 + 0.3 * rng())
+  }
+  return normalize(out, 0.8)
+}
+
+/** Splash: a wash of noise breaking, then droplets falling back. */
+export function splash(sampleRate: number, rng: Rng = Math.random): Float32Array<ArrayBuffer> {
+  const n = Math.round(sampleRate * 1.4)
+  const out = new Float32Array(n)
+  const filter = new StateVariableFilter(sampleRate, 0.9)
+  for (let i = 0; i < n; i++) {
+    const t = i / sampleRate
+    filter.process(rng() * 2 - 1, sweep(4500, 900, t / 0.6))
+    out[i] = filter.band * Math.min(t / 0.01, 1) * Math.exp(-t / 0.22) * 1.6
+  }
+  for (let k = 0; k < 30; k++) {
+    const at = Math.floor((0.08 + Math.pow(rng(), 1.5) * 0.9) * sampleRate)
+    addBlip(out, at, sampleRate, 500 * Math.pow(3.5, rng()), 0.006 + rng() * 0.015, 0.2 + 0.5 * rng())
+  }
+  fadeTail(out, sampleRate, 0.1)
+  return normalize(out, 0.9)
+}

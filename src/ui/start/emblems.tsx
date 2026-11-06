@@ -2,7 +2,7 @@ import type { Ref } from 'react'
 import { ELEMENT_STYLES, type ElementKind } from './elementStyles'
 
 /** Original line-art glyphs, drawn on a 48-unit grid. */
-function Glyph({ kind }: { kind: ElementKind }) {
+export function ElementGlyph({ kind }: { kind: ElementKind }) {
   switch (kind) {
     case 'fire':
       return (
@@ -65,14 +65,13 @@ export function Emblem({ kind, ref, delay = 0 }: { kind: ElementKind; ref?: Ref<
           style={{ filter: `drop-shadow(0 0 6px ${style.glow})` }}
           aria-hidden
         >
-          <Glyph kind={kind} />
+          <ElementGlyph kind={kind} />
         </svg>
       </div>
       <div className="text-center leading-tight">
         <div className="font-display text-xs tracking-[0.3em] uppercase sm:text-sm" style={{ color: style.color }}>
           {style.label}
         </div>
-        {!style.ready && <div className="text-[10px] tracking-widest text-neutral-500 uppercase">soon</div>}
       </div>
     </div>
   )

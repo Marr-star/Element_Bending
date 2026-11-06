@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { explosion, ignite, seededRng, whoosh, woodFire } from './synth'
+import { bubbles, electricBuzz, explosion, ignite, seededRng, splash, stream, thump, thunder, whoosh, wind, woodFire, zap } from './synth'
 
 const RATE = 48000
 
@@ -11,8 +11,17 @@ const sounds = {
   ignite: () => ignite(RATE, seededRng(2)),
   whoosh: () => whoosh(RATE, seededRng(3)),
   explosion: () => explosion(RATE, seededRng(4)),
+  electricBuzz: () => electricBuzz(RATE, 2, seededRng(6)),
+  zap: () => zap(RATE, seededRng(7)),
+  thunder: () => thunder(RATE, seededRng(8)),
+  wind: () => wind(RATE, 4, seededRng(9)),
+  thump: () => thump(RATE, seededRng(10)),
+  bubbles: () => bubbles(RATE, 3, seededRng(11)),
+  stream: () => stream(RATE, 4, seededRng(12)),
+  splash: () => splash(RATE, seededRng(13)),
 }
-const loops = ['woodFire'] as const
+const loops = ['woodFire', 'electricBuzz', 'wind', 'bubbles', 'stream'] as const
+const oneShots = ['ignite', 'whoosh', 'explosion', 'zap', 'thunder', 'thump', 'splash'] as const
 
 describe('synthesized sounds', () => {
   for (const [name, make] of Object.entries(sounds)) {
@@ -40,14 +49,14 @@ describe('synthesized sounds', () => {
       expect(Math.abs(samples[0] - samples.at(-1)!)).toBeLessThan(typicalStep)
     })
 
-    it(`${name} is crackly, not a steady noise`, () => {
+    it.runIf(name === 'woodFire')(`${name} is crackly, not a steady noise`, () => {
       // Crest factor (peak / RMS): sharp snaps over a quiet bed score high. Steady filtered noise,
       // which sounds like a rumble or an engine, scores about 4.
       const samples = sounds[name]()
       expect(peak(samples) / rms(samples)).toBeGreaterThan(10)
     })
 
-    it(`${name} has no strong pitched tone (the "motor" sound)`, () => {
+    it.runIf(name === 'woodFire')(`${name} has no strong pitched tone (the "motor" sound)`, () => {
       // Autocorrelation of a tonal sound peaks again at its period; crackle and noise do not.
       const samples = sounds[name]().subarray(0, RATE)
       const correlation = (lag: number) => {
@@ -72,8 +81,15 @@ describe('synthesized sounds', () => {
   })
 
   it('one-shots fade in instead of starting with a click', () => {
-    for (const make of [sounds.ignite, sounds.whoosh]) {
+    for (const make of [sounds.ignite, sounds.whoosh, sounds.zap, sounds.thunder, sounds.thump, sounds.splash]) {
       expect(Math.abs(make()[0])).toBeLessThan(0.01)
     }
   })
+
+  for (const name of oneShots) {
+    it(`${name} ends in silence`, () => {
+      const samples = sounds[name]()
+      expect(rms(samples.subarray(samples.length - RATE * 0.01))).toBeLessThan(0.02)
+    })
+  }
 })

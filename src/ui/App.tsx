@@ -3,10 +3,14 @@ import { createAudioEngine } from '../audio/audioEngine'
 import { CameraError } from '../core/camera'
 import { startRuntime, type Runtime } from '../core/runtime'
 import { ControlPanel } from './ControlPanel'
+import { ElementSwitcher } from './ElementSwitcher'
 import { EventLog } from './EventLog'
 import { GestureBadge } from './GestureBadge'
+import type { ElementKind } from './start/elementStyles'
 import { StartScreen } from './start/StartScreen'
 import { Stats } from './Stats'
+
+const ELEMENT_KEYS: Record<string, ElementKind> = { '1': 'fire', '2': 'water', '3': 'lightning', '4': 'air' }
 
 type Status = { kind: 'idle' } | { kind: 'starting' } | { kind: 'running'; runtime: Runtime } | { kind: 'error'; message: string }
 
@@ -22,6 +26,7 @@ export default function App() {
   const [recording, setRecording] = useState(false)
   const [bloom, setBloom] = useState(true)
   const [sound, setSound] = useState(true)
+  const [element, setElement] = useState<ElementKind>('fire')
 
   // The Start click is the user gesture that camera and audio require.
   async function start() {
@@ -39,6 +44,7 @@ export default function App() {
       runtime.setSkeletonVisible(showSkeleton)
       runtime.setBloom(bloom)
       runtime.audio?.setMuted(!sound)
+      runtime.setElement(element)
       runtimeRef.current = runtime
       setStatus({ kind: 'running', runtime })
     } catch (err) {
@@ -75,6 +81,10 @@ export default function App() {
   }, [sound])
 
   useEffect(() => {
+    runtimeRef.current?.setElement(element)
+  }, [element])
+
+  useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.repeat) return
       const key = e.key.toLowerCase()
@@ -82,6 +92,8 @@ export default function App() {
       if (key === 'b') setBloom((on) => !on)
       if (key === 'm') setSound((on) => !on)
       if (key === 'r') toggleRecording()
+      const picked = ELEMENT_KEYS[key]
+      if (picked) setElement(picked)
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -103,6 +115,9 @@ export default function App() {
           </div>
           <div className="absolute bottom-4 left-4">
             <EventLog gestures={status.runtime.gestures} />
+          </div>
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2">
+            <ElementSwitcher element={element} onChange={setElement} />
           </div>
           <div className="absolute top-4 right-4">
             <ControlPanel

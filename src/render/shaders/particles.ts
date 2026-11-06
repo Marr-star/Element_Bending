@@ -13,6 +13,7 @@ attribute vec2 aTime;      // birth time, lifetime (s)
 attribute vec2 aSize;      // start and end size (px)
 attribute vec3 aColorA;    // colour at birth (may exceed 1 to feed bloom)
 attribute vec3 aColorB;    // colour at death
+attribute vec4 aOrbit;     // xy orbit centre, z spin (rad/s, 0 = no orbit), w inward speed (px/s)
 
 varying vec3 vColor;
 varying float vAlpha;
@@ -26,9 +27,17 @@ void main() {
     return;
   }
 
-  float drag = aVelocity.z;
-  float travel = drag > 0.0 ? (1.0 - exp(-drag * age)) / drag : age;
-  vec2 p = position.xy + aVelocity.xy * travel + 0.5 * aExtra.xy * age * age;
+  vec2 p;
+  if (aOrbit.z != 0.0) {
+    vec2 rel = position.xy - aOrbit.xy;
+    float radius = max(length(rel) - aOrbit.w * age, 0.0);
+    float angle = atan(rel.y, rel.x) + aOrbit.z * age;
+    p = aOrbit.xy + radius * vec2(cos(angle), sin(angle));
+  } else {
+    float drag = aVelocity.z;
+    float travel = drag > 0.0 ? (1.0 - exp(-drag * age)) / drag : age;
+    p = position.xy + aVelocity.xy * travel + 0.5 * aExtra.xy * age * age;
+  }
   float seed = aExtra.w * 6.2831;
   p += aExtra.z * t * vec2(sin(age * 7.0 + seed), cos(age * 5.3 + seed * 2.0));
 
