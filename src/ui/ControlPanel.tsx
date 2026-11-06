@@ -3,6 +3,8 @@ interface ControlPanelProps {
   onShowSkeletonChange(show: boolean): void
   bloom: boolean
   onBloomChange(on: boolean): void
+  sound: boolean
+  onSoundChange(on: boolean): void
   recording: boolean
   onToggleRecording(): void
   onStop(): void
@@ -14,6 +16,8 @@ export function ControlPanel({
   onShowSkeletonChange,
   bloom,
   onBloomChange,
+  sound,
+  onSoundChange,
   recording,
   onToggleRecording,
   onStop,
@@ -22,6 +26,7 @@ export function ControlPanel({
     <div className="flex items-center gap-3 rounded-lg bg-black/60 px-3 py-2 text-sm backdrop-blur">
       <Toggle label="Skeleton" hotkey="S" checked={showSkeleton} onChange={onShowSkeletonChange} />
       <Toggle label="Glow" hotkey="B" checked={bloom} onChange={onBloomChange} />
+      <Toggle label="Sound" hotkey="M" checked={sound} onChange={onSoundChange} />
       <button
         type="button"
         onClick={onToggleRecording}

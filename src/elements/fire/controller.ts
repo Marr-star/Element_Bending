@@ -2,6 +2,7 @@ import type { GestureEvent, GestureFrame } from '../../gestures/gestureEngine'
 import type { Handedness } from '../../tracking/handState'
 import type { Vec2 } from '../../tracking/vec'
 import { palmInScene, sizeInScene, velocityInScene, type EffectContext, type ElementController } from '../types'
+import { FireSounds, type FireballVoice } from './sounds'
 import { emitCharge, emitExplosion, emitFlames, emitSparks, emitTrail, FireballCore } from './visuals'
 
 /**
@@ -32,6 +33,8 @@ interface Fireball {
   /** Explosion strength; 1 for a normal fireball. */
   power: number
   core: FireballCore
+  /** Crackle and roar while the ball exists; null without audio. */
+  voice: FireballVoice | null
 }
 
 /** Seconds. */
@@ -55,11 +58,13 @@ const MERGED_MAX_GROWTH = 2.5
 
 export class FireController implements ElementController {
   private readonly ctx: EffectContext
+  private readonly sounds: FireSounds | null
   private balls: Fireball[] = []
   private time = 0
 
   constructor(ctx: EffectContext) {
     this.ctx = ctx
+    this.sounds = ctx.audio ? new FireSounds(ctx.audio) : null
   }
 
   update(dt: number, frame: GestureFrame, events: readonly GestureEvent[]): void {
@@ -70,7 +75,10 @@ export class FireController implements ElementController {
   }
 
   dispose(): void {
-    this.balls.forEach((ball) => ball.core.dispose())
+    this.balls.forEach((ball) => {
+      ball.core.dispose()
+      ball.voice?.stop()
+    })
     this.balls = []
   }
 
@@ -95,11 +103,14 @@ export class FireController implements ElementController {
     if (!tracked) return
     const { stage } = this.ctx
     const baseRadius = clamp(sizeInScene(stage, tracked.state) * RADIUS_PER_HAND, MIN_RADIUS, MAX_RADIUS)
+    const position = palmInScene(stage, tracked.state)
+    const pan = this.panOf(position)
+    this.sounds?.ignite(pan)
     this.balls.push({
       phase: 'charging',
       phaseTime: 0,
       owners: [hand],
-      position: palmInScene(stage, tracked.state),
+      position,
       velocity: { x: 0, y: 0 },
       radius: 0,
       baseRadius,
@@ -108,6 +119,7 @@ export class FireController implements ElementController {
       launchRadius: 0,
       power: 1,
       core: new FireballCore(stage.scene),
+      voice: this.sounds?.voice() ?? null,
     })
   }
 
@@ -129,6 +141,8 @@ export class FireController implements ElementController {
       holdTime: 0,
     }
     right.core.dispose()
+    right.voice?.stop()
+    this.sounds?.whoosh(this.panOf(merged.position), 0.5)
     this.balls = this.balls.filter((ball) => ball !== left && ball !== right)
     this.balls.push(merged)
     emitSparks(this.ctx.particles, merged.position, merged.radius, 1, 40)
@@ -149,6 +163,7 @@ export class FireController implements ElementController {
       const launchSpeed = Math.max(speed * 1.2, MIN_LAUNCH_SPEED * stage.plane.height)
       ball.velocity = { x: (velocity.x / speed) * launchSpeed, y: (velocity.y / speed) * launchSpeed }
       ball.power = Math.max(1, ball.radius / ball.baseRadius)
+      this.sounds?.whoosh(this.panOf(ball.position))
       this.setPhase(ball, 'launched')
     } else {
       this.setPhase(ball, 'fading')
@@ -161,6 +176,7 @@ export class FireController implements ElementController {
     ball.towardViewer = true
     ball.launchRadius = Math.max(ball.radius, ball.baseRadius * 0.6)
     ball.power = 1.6 * Math.max(1, ball.radius / ball.baseRadius)
+    this.sounds?.whoosh(this.panOf(ball.position), 1)
     this.setPhase(ball, 'launched')
   }
 
@@ -169,6 +185,8 @@ export class FireController implements ElementController {
     emitExplosion(particles, ball.position, Math.min(ball.radius, MAX_RADIUS * 1.5), ball.power)
     stage.flash(0xff7a20, Math.min(0.2 * ball.power, 0.7))
     stage.shake(7 * ball.power)
+    ball.voice?.stop(0.05)
+    this.sounds?.explode(this.panOf(ball.position), ball.power)
     this.setPhase(ball, 'exploding')
   }
 
@@ -262,10 +280,18 @@ export class FireController implements ElementController {
     }
 
     ball.core.update(ball.position, ball.radius, intensity, this.time)
+    // The hold sound plays at its recorded volume; it only fades with a released ball.
+    ball.voice?.setLevel(ball.phase === 'fading' ? clamp(intensity, 0, 1) : 1)
+  }
+
+  /** Stereo position for one-shots: -1 at the left edge of the view, +1 at the right. */
+  private panOf(position: Vec2): number {
+    return clamp(position.x / (this.ctx.stage.viewport.width / 2), -1, 1)
   }
 
   private remove(ball: Fireball): void {
     ball.core.dispose()
+    ball.voice?.stop()
     this.balls = this.balls.filter((other) => other !== ball)
   }
 }

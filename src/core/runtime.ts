@@ -1,4 +1,5 @@
 import type { GestureRecognizer } from '@mediapipe/tasks-vision'
+import type { AudioEngine } from '../audio/audioEngine'
 import { FireController } from '../elements/fire/controller'
 import type { ElementController } from '../elements/types'
 import { GestureEngine, type GestureEvent, type GestureFrame } from '../gestures/gestureEngine'
@@ -30,6 +31,8 @@ export interface RuntimeOptions {
   video: HTMLVideoElement
   /** One DOM label per hand, positioned beside the wrist each frame. */
   labels: Record<Handedness, HTMLElement | null>
+  /** Created in the Start click so it may play; the runtime owns it from here and closes it. */
+  audio: AudioEngine | null
 }
 
 export interface Runtime {
@@ -39,6 +42,8 @@ export interface Runtime {
   gestures: GestureEngine
   setSkeletonVisible(visible: boolean): void
   setBloom(enabled: boolean): void
+  /** Volume, per-element volume and mute; null without Web Audio. */
+  audio: AudioEngine | null
   /** Starts or stops a debug recording; stopping downloads it as JSON. Returns whether recording. */
   toggleRecording(): boolean
   stop(): void
@@ -66,11 +71,12 @@ function arrow(direction: Vec2): string {
  * Wires camera -> recognizer -> tracker -> gesture engine -> scene into one loop. All per-frame
  * data lives here in plain objects; React only starts/stops it and reads `stats`.
  */
-export async function startRuntime({ container, video, labels }: RuntimeOptions): Promise<Runtime> {
+export async function startRuntime({ container, video, labels, audio }: RuntimeOptions): Promise<Runtime> {
   const [camera, model] = await Promise.allSettled([startCamera(video), createRecognizer()])
   if (camera.status === 'rejected' || model.status === 'rejected') {
     if (camera.status === 'fulfilled') stopCamera(camera.value)
     if (model.status === 'fulfilled') model.value.recognizer.close()
+    audio?.close()
     throw camera.status === 'rejected' ? camera.reason : (model as PromiseRejectedResult).reason
   }
   const stream = camera.value
@@ -86,7 +92,7 @@ export async function startRuntime({ container, video, labels }: RuntimeOptions)
   const aspect = () => (video.videoWidth && video.videoHeight ? video.videoWidth / video.videoHeight : 16 / 9)
 
   const particles = new ParticleSystem(stage.scene)
-  const elements: ElementController[] = [new FireController({ stage, particles })]
+  const elements: ElementController[] = [new FireController({ stage, particles, audio })]
 
   // Events queue up between frames; holds are left out because the frame carries durations.
   const pendingEvents: GestureEvent[] = []
@@ -133,6 +139,7 @@ export async function startRuntime({ container, video, labels }: RuntimeOptions)
     gestures,
     setSkeletonVisible: (visible) => skeleton.setVisible(visible),
     setBloom: (enabled) => (stage.postFx.enabled = enabled),
+    audio,
     toggleRecording() {
       if (!recorder.active) {
         recorder.start(aspect(), performance.now() / 1000)
@@ -146,6 +153,7 @@ export async function startRuntime({ container, video, labels }: RuntimeOptions)
       stopLoop()
       recorder.stop()
       elements.forEach((element) => element.dispose())
+      audio?.close()
       particles.dispose()
       skeleton.dispose()
       stage.dispose()
