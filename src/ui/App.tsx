@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { createAudioEngine } from '../audio/audioEngine'
 import { CameraError } from '../core/camera'
 import { startRuntime, type Runtime } from '../core/runtime'
 import { ControlPanel } from './ControlPanel'
@@ -19,19 +20,24 @@ export default function App() {
   const [showSkeleton, setShowSkeleton] = useState(true)
   const [recording, setRecording] = useState(false)
   const [bloom, setBloom] = useState(true)
+  const [sound, setSound] = useState(true)
 
-  // The Start click is the user gesture that camera (and, from Phase 4, audio) require.
+  // The Start click is the user gesture that camera and audio require.
   async function start() {
     if (!containerRef.current || !videoRef.current) return
+    // Create the AudioContext before any await, while still inside the click, so it may play.
+    const audio = createAudioEngine()
     setStatus({ kind: 'starting' })
     try {
       const runtime = await startRuntime({
         container: containerRef.current,
         video: videoRef.current,
         labels: { Left: leftLabelRef.current, Right: rightLabelRef.current },
+        audio,
       })
       runtime.setSkeletonVisible(showSkeleton)
       runtime.setBloom(bloom)
+      runtime.audio?.setMuted(!sound)
       runtimeRef.current = runtime
       setStatus({ kind: 'running', runtime })
     } catch (err) {
@@ -64,11 +70,16 @@ export default function App() {
   }, [bloom])
 
   useEffect(() => {
+    runtimeRef.current?.audio?.setMuted(!sound)
+  }, [sound])
+
+  useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.repeat) return
       const key = e.key.toLowerCase()
       if (key === 's') setShowSkeleton((show) => !show)
       if (key === 'b') setBloom((on) => !on)
+      if (key === 'm') setSound((on) => !on)
       if (key === 'r') toggleRecording()
     }
     window.addEventListener('keydown', onKey)
@@ -98,6 +109,8 @@ export default function App() {
               onShowSkeletonChange={setShowSkeleton}
               bloom={bloom}
               onBloomChange={setBloom}
+              sound={sound}
+              onSoundChange={setSound}
               recording={recording}
               onToggleRecording={toggleRecording}
               onStop={stop}

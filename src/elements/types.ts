@@ -1,3 +1,4 @@
+import type { AudioEngine } from '../audio/audioEngine'
 import type { GestureEvent, GestureFrame } from '../gestures/gestureEngine'
 import type { ParticleSystem } from '../render/particles'
 import type { Stage } from '../render/scene'
@@ -8,6 +9,8 @@ import type { Vec2 } from '../tracking/vec'
 export interface EffectContext {
   stage: Stage
   particles: ParticleSystem
+  /** Null when Web Audio is unavailable; elements then stay silent. */
+  audio: AudioEngine | null
 }
 
 /**

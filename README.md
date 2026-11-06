@@ -61,7 +61,33 @@ Effects share one GPU particle system (5,000 particles in a ring buffer, motion 
 shader) and an UnrealBloomPass glow. The webcam is dimmed below the bloom threshold so only
 effects glow.
 
-**Keys:** `S` toggles the skeleton, `B` toggles glow (bloom), `R` starts/stops a landmark recording. Stopping downloads a
+## Sound
+
+The AudioContext is created in the Start click, since browsers keep it silent otherwise.
+
+- Routing: sound -> gain -> stereo panner -> element bus -> master -> compressor -> speakers.
+- **Holding a fireball** plays `public/sounds/fire-hold.m4a`: the audio track of the project's own
+  campfire video, copied out of the video without re-encoding, editing or volume changes. It plays
+  from the start at its recorded volume and loops if a ball is held longer than its 54 s. Nothing
+  else is mixed in while holding.
+- One-shots (ignite, whoosh, explosion) are synthesized in `audio/synth.ts` and get a fresh source
+  each time with a random playback rate (0.9–1.1), panned to where the fireball is.
+- Every level change ramps with `setTargetAtTime`, so nothing clicks when sounds start or stop.
+- `AudioEngine` already has master volume, per-element volume and mute for the Phase 6 sliders.
+
+### Using real recordings
+
+Files in `public/sounds/` (`.ogg`, `.mp3`, `.wav` or `.m4a`) replace the synthesized sounds;
+anything missing stays synthesized.
+
+| File name | Used for |
+|---|---|
+| `fire-hold` | The sound while holding a fireball (without it, a synthesized wood-fire crackle plays) |
+| `fire-ignite`, `fire-whoosh`, `fire-explosion` | The one-shots |
+
+Check the licence of anything you add. CC0 or similar avoids attribution requirements.
+
+**Keys:** `S` toggles the skeleton, `B` toggles glow (bloom), `M` toggles sound, `R` starts/stops a landmark recording. Stopping downloads a
 JSON file; put it in `src/gestures/fixtures/` and replay it in a test with `replay()` from
 `gestures/recorder.ts` to tune thresholds without the camera.
 
