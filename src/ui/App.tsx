@@ -5,6 +5,7 @@ import { startRuntime, type Runtime } from '../core/runtime'
 import { ControlPanel } from './ControlPanel'
 import { EventLog } from './EventLog'
 import { GestureBadge } from './GestureBadge'
+import { StartScreen } from './start/StartScreen'
 import { Stats } from './Stats'
 
 type Status = { kind: 'idle' } | { kind: 'starting' } | { kind: 'running'; runtime: Runtime } | { kind: 'error'; message: string }
@@ -118,34 +119,12 @@ export default function App() {
           </div>
         </>
       ) : (
-        <StartScreen status={status} onStart={start} />
+        <StartScreen
+          starting={status.kind === 'starting'}
+          error={status.kind === 'error' ? status.message : null}
+          onStart={start}
+        />
       )}
     </main>
-  )
-}
-
-function StartScreen({ status, onStart }: { status: Status; onStart(): void }) {
-  const starting = status.kind === 'starting'
-  return (
-    <div className="absolute inset-0 flex items-center justify-center px-4">
-      <div className="max-w-md text-center">
-        <h1 className="bg-gradient-to-r from-orange-400 via-sky-300 to-violet-400 bg-clip-text text-5xl font-black tracking-tight text-transparent">
-          ELEMENTAL AI
-        </h1>
-        <p className="mt-4 text-neutral-300">Bend fire, water, lightning and air with your hands.</p>
-        <p className="mt-2 text-sm text-neutral-500">
-          Your webcam tracks your hands. Video is processed on this device and never leaves it.
-        </p>
-        <button
-          type="button"
-          onClick={onStart}
-          disabled={starting}
-          className="mt-8 rounded-full bg-orange-500 px-8 py-3 font-semibold text-black shadow-lg shadow-orange-500/30 transition hover:bg-orange-400 disabled:cursor-wait disabled:opacity-60"
-        >
-          {starting ? 'Loading hand tracking…' : status.kind === 'error' ? 'Try again' : 'Start'}
-        </button>
-        {status.kind === 'error' && <p className="mt-4 text-sm text-rose-400">{status.message}</p>}
-      </div>
-    </div>
   )
 }

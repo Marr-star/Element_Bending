@@ -1,4 +1,4 @@
-# ELEMENTAL AI
+# Elements Bending
 
 Bend fire, water, lightning and air with hand gestures in the browser. A webcam feeds
 MediaPipe's Gesture Recognizer, and the effects render with Three.js on top of the live video.
